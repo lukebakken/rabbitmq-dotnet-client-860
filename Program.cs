@@ -1,20 +1,28 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
 
 namespace repro
 {
-    class Program {
-        static void Main(string[] args) {
-            // connects to RabbitMQ
-            var factory = new ConnectionFactory {
+    class Program
+    {
+        const int threadCount = 32;
+        const int count = 20;
+
+        static void Main(string[] args)
+        {
+            ThreadPool.SetMinThreads(threadCount, threadCount);
+
+            var factory = new ConnectionFactory
+            {
                 AutomaticRecoveryEnabled = true,
                 TopologyRecoveryEnabled = true,
-                HostName = "127.0.0.1",
+                HostName = "ravel",
                 Port = 5672,
-                UserName = "user",
-                Password = "password",
+                UserName = "guest",
+                Password = "guest",
                 VirtualHost = "/",
                 RequestedConnectionTimeout = new TimeSpan(0, 0, 2),
                 UseBackgroundThreadsForIO = false,
@@ -23,23 +31,21 @@ namespace repro
 
             var connection = factory.CreateConnection();
 
-            // creates channels
             Console.WriteLine("Creating channels...");
             var totalTicksCounter = Environment.TickCount;
 
-            /*Creating channels synchronously works fine with 6.0.0 and 6.1.0.
-             *Creating channels asynchronously is very slow with 6.1.0. */
-            var tasks = Enumerable.Range(0, 20).Select(
-                i => Task.Factory.StartNew(
+            var tasks = new Task[count];
+            for (int i = 0; i < count; ++i)
+            {
+                tasks[i] = Task.Factory.StartNew(
                     obj => {
                         var ticksCounter = Environment.TickCount;
                         var channel = connection.CreateModel();
                         var cost = Environment.TickCount - ticksCounter;
                         Console.WriteLine($"ID:{(int)obj}, Cost:{cost:N0}ms.");
-                    },
-                    i));
+                    }, i);
+            }
 
-            // waits for completion
             Task.WhenAll(tasks).Wait();
             var totalCost = Environment.TickCount - totalTicksCounter;
             Console.WriteLine($"Done, Total Cost:{totalCost:N0}ms.");
