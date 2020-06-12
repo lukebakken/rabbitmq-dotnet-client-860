@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using RabbitMQ.Client;
 
@@ -7,14 +8,15 @@ namespace repro
 {
     class Program {
         static void Main(string[] args) {
+            ThreadPool.SetMinThreads(32, 32);
             // connects to RabbitMQ
             var factory = new ConnectionFactory {
                 AutomaticRecoveryEnabled = true,
                 TopologyRecoveryEnabled = true,
-                HostName = "127.0.0.1",
+                HostName = "ravel",
                 Port = 5672,
-                UserName = "user",
-                Password = "password",
+                UserName = "guest",
+                Password = "guest",
                 VirtualHost = "/",
                 RequestedConnectionTimeout = new TimeSpan(0, 0, 2),
                 UseBackgroundThreadsForIO = false,
